@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+    body {
+        font: 12px Arial;
+        background-color: #152646;
+    }
+    
+    #container {
+        fill: #0c2240;
+        max-width: 10000px;
+        margin-left: 40px;
+        margin-right: 20px;
+        margin-top: 10px;
+        padding: 1px 10px 10px 10px;
+        background-color: #0c2240;
+        box-shadow: 1px 1px 1px 1px;
+    }
+    
+    g.tick {
+        stroke: #fff;
+        stroke-width: 0.4;
+        opacity: 1;
+    }
+    
+    .zoom {
+        cursor: move;
+        fill: none;
+        pointer-events: all;
+    }
+    
+    .area {
+        fill: none;
+        clip-path: url(#clip);
+    }
+    
+    path {
+        stroke-width: 1.5;
+        fill: none;
+    }
+    
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #fff;
+        opacity: 0.8;
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+    }
+    
+    }
+    
+    tooltip {
+        position: absolute;
+        text-align: right;
+        width: 100px;
+        height: 28px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: #fff;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+    }
+    
+    #divsanchor {
+        fill: none;
+        margin: auto;
+        max-width: 10000px;
+        text-align: left;
+        min-height: 500px;
+    }
+    
+    div.multiples {
+        margin: 20px;
+        display:inline-block;
+        fill: none;
+    }
+    
+    .grid line {
+        stroke: #fff;
+        stroke-opacity: 0.1;
+        shape-rendering: crispEdges;
+    }
+    .grid path {
+        stroke-width: 0;
+    }
+
+</style>
+<body>
+    <div id="container">
+        <div id="divsanchor">
+    
+        </div>
+    </div>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+    var svg = d3.select("svg")
+        margin = {top: 20, right: 20, bottom: 110, left: 40},
+        margin2 = {top: 430, right: 20, bottom: 30, left: 40},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom,
+        height2 = 500 - margin2.top - margin2.bottom;
+
+    var parseTime = d3.timeParse("%Y-%m-%dT%H:%M:%S.%L");
+    var formatTime = d3.timeFormat("%H:%M:%S.%L");
+    
+    var names = {
+        0 : "Accelerator",
+        1 : "Brake",
+        2 : "Speed"
+    };
+    
+    var colors = {
+        0 : "#ff8c11",
+        1 : "#50e2c1",
+        2 : "#d05023"
+    };
+    
+    var x = d3.scaleTime().range([0, width]),
+        x2 = d3.scaleTime().range([0, width]),
+        y = d3.scaleLinear().range([height, 0]),
+        y2 = d3.scaleLinear().range([height2, 0]);
+    
+    function make_x_gridlines() {
+        return d3.axisBottom(x)
+            .ticks(50);
+}
+    
+    function make_y_gridlines() {
+        return d3.axisLeft(y)
+            .ticks(20);
+}
+    var xAxis =  d3.axisBottom(x),
+        xAxis2 = d3.axisBottom(x2),
+        yAxis = d3.axisLeft(y);
+
+    d3.tsv("data.tsv", function(error, data) {
+        if (error) throw error;
+        
+        data.forEach(function(d) {
+            d.date = parseTime(d.date);
+            d.value = +d.value;
+            
+        });
+
+    var id = d3.nest()
+        .key(function(d) {return d.id; })
+        .entries(data);
+        
+    var headerNames = d3.keys(data[0]);
+        
+    var canBus = [];;
+        
+    /*for(var i = 0; i < headerNames.length; i++){
+        if(headerNames[i] != "id"){
+            var key = headerNames[i];
+            var max = d3.max(data, function(d){ return d[key]});
+            canBus.push([key, max])
+        }
+    };*/
+        
+    canBus = canBus.sort(function(a, b) {
+        return b[1] - a[1]
+    }).map(function(d) {return d[0]});
+        
+    for(var i = 0; i < canBus.length; i++){
+        draw(canBus[i], i);
+    };
+        
+    var svg = d3.select("#divsanchor").selectAll("svg")
+        .data(id)
+    .enter().append("g")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .each(draw);
+        
+  function draw(id, i) {
+      
+    var fcs = d3.select("#divsanchor")
+        .append("div")
+        .attr("class", "multiples")
+        .attr("id", "focus" + i);
+      
+    var cxt = d3.select("#divsanchor")
+        .append("div")
+        .attr("class", "multiples")
+        .attr("id", "context" + i);
+      
+    var focus = fcs.append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top)
+        .attr("class", "focus")
+        .attr("transform", "translate(" + margin.left + "," + 0 + ")");
+    
+    var context = cxt.append("svg")
+        .attr("width", width + margin2.left + margin2.right)
+        .attr("height", height2)
+        .attr("class", "context")
+        .attr("transform", "translate(" + margin2.left + "," + 0 + ")");
+    
+    focus.append("g")
+        .attr("class", "grid")
+        .attr("transform", "translate(" + 0 + "," + height + ")")
+        .call(make_x_gridlines()
+            .tickSize(-height)
+            .tickFormat("")
+            );
+    
+    focus.append("g")
+        .attr("class", "grid")
+        .call(make_y_gridlines()
+           .tickSize(-width)
+           .tickFormat("")
+            );
+    
+    var area = d3.area()
+        .x(function(d) { return x(d.date); })
+        .y0(height)
+        .y1(function(d) { return y(d.value); });
+    
+    var area2 = d3.area()
+        .x(function(d) { return x2(d.date); })
+        .y0(height2)
+        .y1(function(d) { return y2(d.value); });
+      
+    focus.append("defs").append("clipPath")
+        .attr("id", "clip")
+      .append("rect")
+        .style("fill", "none")
+        .attr("width", width)
+        .attr("height", height);
+      
+      var title = focus.append("text")
+        .attr("x", ((width + margin.right)/2))
+        .attr("text-anchor", "left")
+        .attr("y", 16)
+        .append("tspan")
+        .attr("class", "title")
+        .attr("fill", "#222")
+        .text(names[i])
+        .attr("fill", colors[i]);
+      
+    var line = d3.line()
+        .x(function(d) { return x(d.date); })
+        .y(function(d) { return y(d.value); });
+      
+    var line2 = d3.line()
+        .x(function(d) { return x2(d.date); })
+        .y(function(d) { return y2(d.value); });
+        
+    x.domain(d3.extent(data, function(d) { return d.date; }));
+    y.domain([0, d3.max(data, function(d) { return d.value; })]);
+    x2.domain(x.domain());
+    y2.domain(y.domain());
+
+    focus.append("path")
+        .datum(data)
+        .attr("class", "area")
+        .attr("d", area)
+      .style("fill", "#0c2240");
+      
+    focus.append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis);
+      
+    focus.append("g")
+        .attr("class", "axis axis--y")
+        .call(yAxis);
+      
+    context.append("path")
+        .attr("class", "line")
+        .attr("d", line2(id.values))
+      .style("stroke", colors[i])
+      .style("fill", colors[i]);
+      
+    context.append("path")
+        .datum(data)
+        .attr("class", "area")
+        .attr("d", area2)
+      .style("fill", "#0c2240");
+      
+    context.append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", "translate(0," + height2 + ")")
+        .call(xAxis2);
+      
+    var brush = d3.brushX()
+        .extent([[0, 0], [width, height2]])
+        .on("brush end", brushed);
+    
+    var zoom = d3.zoom()
+        .scaleExtent([1, 500])
+        .translateExtent([[0, 0], [width, height]])
+        .extent([[0, 0], [width, height]])
+        .on("zoom", zoomed);
+      
+    context.append("g")
+        .attr("class", "brush")
+        .call(brush)
+        .call(brush.move, x.range());
+      
+    focus.append("path")
+        .attr("class", "line")
+        .attr("d", line(id.values))
+      .style("stroke", colors[i])
+      .style("fill", colors[i]);
+      
+    var tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .attr("id", "tooltip" + i)
+        .style("opacity", 0);
+      
+    focus.append("rect")
+        .attr("class", "zoom")
+        .attr("width", width)
+        .attr("height", height)
+        //.attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .call(zoom);
+      
+    focus.selectAll("dot")
+        .data(id.values)
+      .enter().append("circle")
+        .attr("r", 2.3)
+        .style("fill", "transparent")
+        .attr("cx", function(d) { return x(d.date); })
+        .attr("cy", function(d) { return y(d.value); })
+        .on("mousemove", function(d) {
+            div.transition()
+                .duration(100)
+                .style("opacity", .9);
+            div.html(formatTime(d.date) + "<br/>" + names[i] + ": " + d.value)
+                .style("left", (d3.event.pageX) + "px")
+                .style("top", (d3.event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            div.transition()
+                .duration(100)
+                .style("opacity", 0);
+        });
+      
+    function brushed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; //ignore brush-by-zoom
+        var s = d3.event.selection || x2.range();
+        x.domain(s.map(x2.invert, x2));
+        focus.selectAll("circle")
+            .attr("cx", function(d) { return x(d.date); })
+            .attr("cy", function(d) { return y(d.value); });
+        focus.select("path.line").attr("d", line(id.values));
+        focus.select(".axis--x").call(xAxis);
+        focus.select(".zoom").call(zoom.transform, d3.zoomIdentity
+            .scale(width / (s[1] - s[0]))
+            .translate(-s[0], 0));
+    }
+    
+    function zoomed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; //ignore zoom-by-brush
+        var t = d3.event.transform;
+        x.domain(t.rescaleX(x2).domain());
+        focus.selectAll("circle")
+            .attr("cx", function(d) { return x(d.date); })
+            .attr("cy", function(d) { return y(d.value); });
+        focus.select("path.line").attr("d", line(id.values));
+        focus.select(".axis--x").call(xAxis);
+        context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+    }
+        
+    function type(d) {
+        d.date = parseTime(d.date);
+        d.value = +d.value;
+        return d;
+    }
+} //end of draw
+        
+}); //end of data.tsv
+    
+</script>
